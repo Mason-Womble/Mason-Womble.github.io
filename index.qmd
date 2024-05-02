@@ -14,6 +14,24 @@ I am a graduate student studying social data analytics, and especially intereste
 
 [CV](Mason%20CV%20Final.pdf)
 
-**IM Assignment 1**
+**IM Assignments**
 
 [Information Management Assignment 1.pptx](link)
+
+[IM Assignment 2.pptx](link)
+
+[IM Assignment 3.pptx](link)
+
+[IM Assignment 4.pptx](link)
+
+[IM Assignment 5.pptx](link)
+
+[IM_Proposal Presentation](IM%20Proposal%20Presentation.pptx)\
+\
+<https://mason-womble.shinyapps.io/texas_species_app/>
+
+**KM Assignments**
+
+[KM Assignment 2](link)
+
+[KM Assignment 3](link)
