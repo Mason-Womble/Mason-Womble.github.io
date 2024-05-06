@@ -1,0 +1,80 @@
+# Load required libraries
+library(shiny)
+library(DBI)
+library(RSQLite)
+
+# Define UI
+ui <- fluidPage(
+  titlePanel("Texas Animal Endangerment Data Explorer"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("category", "Filter by Category:",
+                  choices = c("All", "Mammal", "Bird")),
+      selectInput("sprot", "Filter by SPROT Rating:",
+                  choices = c("All", "Endangered (E)", "Threatened (T)")),
+      checkboxGroupInput("cause", "Filter by Leading Cause of Endangerment:",
+                         choices = NULL)  # Placeholder for dynamically generated checkboxes
+    ),
+    mainPanel(
+      dataTableOutput("tbl")
+    )
+  )
+)
+
+# Define server logic
+server <- function(input, output, session) {
+  
+  # Create a reactive list of distinct leading causes from the dataset
+  leading_causes <- reactive({
+    sqlite_conn <- dbConnect(RSQLite::SQLite(), dbname ='Animal_App_Data.db')
+    query <- "SELECT DISTINCT leading_cause FROM SPROT"
+    causes <- dbGetQuery(sqlite_conn, query)$leading_cause
+    dbDisconnect(sqlite_conn)
+    unique(unlist(strsplit(causes, ", ")))
+  })
+  
+  # Update the choices for the checkboxGroupInput in the UI
+  observe({
+    updateCheckboxGroupInput(session, "cause", "Filter by Leading Cause of Endangerment:",
+                             choices = leading_causes())
+  })
+  
+  output$tbl <- renderDataTable({
+    # Connect to SQLite database
+    sqlite_conn <- dbConnect(RSQLite::SQLite(), dbname ='Animal_App_Data.db')
+    
+    # Create SQL command to join tables and fetch data
+    sqlite_sql <- "SELECT f.common_name, f.scientific_name, f.endangerment_level, s.leading_cause, t.taxonomy 
+                   FROM fauna AS f 
+                   LEFT JOIN SPROT AS s ON f.animal_id = s.animal_id
+                   LEFT JOIN taxonomy AS t ON f.taxonomy = t.taxonomy
+                   WHERE 1=1"
+    
+    # Apply filters based on user inputs
+    if (input$category != "All") {
+      sqlite_sql <- paste0(sqlite_sql, " AND t.taxonomy = '", input$category, "'")
+    }
+    if (input$sprot != "All") {
+      sqlite_sql <- paste0(sqlite_sql, " AND s.endangerment_level = '", substr(input$sprot, 1, 1), "'")
+    }
+    if (!is.null(input$cause)) {
+      cause_filter <- paste0("s.leading_cause IN ('", paste0(input$cause, collapse = "', '"), "')")
+      sqlite_sql <- paste0(sqlite_sql, " AND ", cause_filter)
+    }
+    
+    # Limit the number of rows based on user input
+    sqlite_sql <- paste0(sqlite_sql, " LIMIT 100")  # Limiting to 100 rows
+    
+    # Execute query
+    table_df <- dbGetQuery(sqlite_conn, sqlite_sql)
+    
+    # Disconnect from SQLite database
+    on.exit(dbDisconnect(sqlite_conn), add = TRUE)
+    
+    # Return the data frame
+    table_df
+  })
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
