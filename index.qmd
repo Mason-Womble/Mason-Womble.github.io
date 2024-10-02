@@ -12,26 +12,28 @@ I am a graduate student studying social data analytics, and especially intereste
 
 **CV**
 
-[CV](Mason%20CV%20Final.pdf)
+[CV](Womble%20CV%202024.pdf)
 
-**IM Assignments**
-
-[Information Management Assignment 1.pptx](link)
-
-[IM Assignment 2.pptx](link)
-
-[IM Assignment 3.pptx](link)
-
-[IM Assignment 4.pptx](link)
-
-[IM Assignment 5.pptx](link)
-
-[IM_Proposal Presentation](IM%20Proposal%20Presentation.pptx)\
+**Projects\
 \
-<https://mason-womble.shinyapps.io/texas_species_app/>
+**[Medical Device Research Project](EPPS%20Research%20paper.pdf)\
+\
+[Health Misinformation Research Project](Jepkosgei_finalproject.pdf)
 
-**KM Assignments**
+**Data Visualization Assignments**
 
-[KM Assignment 2](link)
+[Assignment 1](Mason_CV_Final.pdf)
 
-[KM Assignment 3](link)
+[Assignment 2](Mason_CV_Final.pdf)
+
+[Assignment 3](Data_Visualization_Assignment_3.pdf)
+
+**Prepare for class notes**
+
+[PFC 4](Mason_CV_Final.pdf)
+
+[PFC 5](Mason_CV_Final.pdf)
+
+**Hackathon**
+
+[Hackathon 1](Hackathon_1_Scatterplot.pdf)
