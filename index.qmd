@@ -22,9 +22,9 @@ I am a graduate student studying social data analytics, and especially intereste
 
 **Data Visualization Assignments**
 
-[Assignment 1](Mason_CV_Final.pdf)
+[Assignment 1](Data_Visualization_Assignment_1_Revised.pdf)
 
-[Assignment 2](Mason_CV_Final.pdf)
+[Assignment 2](Assignment_2.R)
 
 [Assignment 3](Data_Visualization_Assignment_3.pdf)
 
