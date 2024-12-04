@@ -4,7 +4,7 @@ title: Mason Womble
 
 ### About
 
-I am a graduate student studying social data analytics, and especially interested in social research focusing on queer topics and gender studies. Enthusiastic and eager to not only apply my knowledge of social research, but to learn more in order to refine my craft with firsthand experience.
+I am a graduate student studying social data analytics. Enthusiastic and eager to not only apply my knowledge of social research, but to learn more in order to refine my craft with firsthand experience.
 
 ### Contact me
 
@@ -20,6 +20,12 @@ I am a graduate student studying social data analytics, and especially intereste
 \
 [Health Misinformation Research Project](Jepkosgei_finalproject.pdf)
 
+[Economics and Elections Research Project](Womble_FinalProject_6356.pdf)
+
+**Shiny Projects**
+
+[Economics and Elections App](https://mason-womble.shinyapps.io/DataVis_FinalProject/)
+
 **Data Visualization Assignments**
 
 [Assignment 1](Data_Visualization_Assignment_1_Revised.pdf)
@@ -28,14 +34,14 @@ I am a graduate student studying social data analytics, and especially intereste
 
 [Assignment 3](Data_Visualization_Assignment_3.pdf)
 
-[Assignment 4/Hackathon 1](Womble_Hackathon.R)
+[Assignment 5](DataVis_Assignment5.pdf)
 
-**Prepare for class notes**
-
-[PFC 4](Mason_CV_Final.pdf)
-
-[PFC 5](Mason_CV_Final.pdf)
+[Assignment 6](https://mason-womble.shinyapps.io/Assignment_6/)
 
 **Hackathon**
 
 [PreHackathon](Hackathon%201%20Scatterplot.pdf)
+
+[Assignment 4/Hackathon 1](Womble_Hackathon.R)
+
+[Assignment 7/Hackathon 2](https://mason-womble.shinyapps.io/Hackathon2/)
