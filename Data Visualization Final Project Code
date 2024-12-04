@@ -1,0 +1,523 @@
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(zoo)  # For rolling averages
+library(readxl)
+library(tidyr)
+library(reshape2)
+library(quantmod)
+library(tseries)
+library(lubridate)
+library(gridExtra)
+library(PerformanceAnalytics)
+library(shinythemes)
+
+# Load the dataset (update path if needed)
+data <- read_excel("BigSet4.xlsx")
+data$Exchange_Date <- as.Date(data$Exchange_Date)
+
+# Load secondary dataset for bar graphs
+data2 <- data[1:14341,]
+data2$Exchange_Date <- as.Date(data2$Exchange_Date)
+
+# Define election periods for Time-Series Plot
+election_periods <- list(
+  `2020 Election` = list(start = as.Date("2019-11-03"), end = as.Date("2021-11-03"), election_day = as.Date("2020-11-03")),
+  `2016 Election` = list(start = as.Date("2015-11-08"), end = as.Date("2017-11-08"), election_day = as.Date("2016-11-08")),
+  `2012 Election` = list(start = as.Date("2011-11-06"), end = as.Date("2013-11-06"), election_day = as.Date("2012-11-06"))
+)
+
+# Define the function to process election data - Efficient Frontier
+process_election_data <- function(election_data, risk_free_rate = 0.03, num_portfolios = 10000) {
+  # Calculate returns
+  returns <- na.omit(Return.calculate(election_data, method = "log"))
+  # Portfolio metrics function
+  portfolio_metrics <- function(weights, returns) {
+    port_return <- sum(colMeans(returns) * weights) * 252  # Annualized return
+    port_risk <- sqrt(t(weights) %*% (cov(returns) * 252) %*% weights)  # Annualized risk
+    c(port_return, port_risk)
+  }
+  
+  # Generate random portfolios
+  generate_portfolios <- function(returns, num_portfolios) {
+    n <- ncol(returns)
+    all_weights <- matrix(0, nrow = num_portfolios, ncol = n)
+    portfolio_returns <- numeric(num_portfolios)
+    portfolio_risks <- numeric(num_portfolios)
+    for (i in 1:num_portfolios) {
+      weights <- runif(n)
+      weights <- weights / sum(weights)  # Normalize to sum to 1
+      all_weights[i, ] <- weights
+      metrics <- portfolio_metrics(weights, returns)
+      portfolio_returns[i] <- metrics[1]
+      portfolio_risks[i] <- metrics[2]
+    }
+    data.frame(Return = portfolio_returns, Risk = portfolio_risks, Weights = I(all_weights))
+  }
+  
+  # Generate portfolios
+  portfolios <- generate_portfolios(returns, num_portfolios)
+  # Calculate Sharpe Ratios
+  portfolios$SharpeRatio <- (portfolios$Return - risk_free_rate) / portfolios$Risk
+  # Find the maximum Sharpe Ratio portfolio
+  max_sharpe_index <- which.max(portfolios$SharpeRatio)
+  max_sharpe_weights <- portfolios[max_sharpe_index, ]
+  max_SR <- max_sharpe_weights$SharpeRatio
+  # Extract sector weights
+  selected_weights <- setNames(max_sharpe_weights$Weights[, 1:5, drop = TRUE], 
+                               c("Tech", "Financials", "Healthcare", "Industrials", "Aero&Defense"))
+  list(
+    portfolios = portfolios,
+    max_sharpe_index = max_sharpe_index,
+    max_SR = max_SR,
+    selected_weights = selected_weights
+  )
+}
+
+# Load election data - Efficient Frontier
+election_data_list <- list(
+  "2012" = read_excel("2012 Elections.xlsx"),
+  "2016" = read_excel("2016 Elections.xlsx"),
+  "2020" = read_excel("2020 Elections.xlsx")
+)
+
+
+# Define UI for the combined application
+ui <- fluidPage(theme = shinytheme("superhero"), # darkly
+                #cyborg, darkly, readable, slate, superhero
+                titlePanel("Stock Sector Analysis"),
+                
+                sidebarLayout(
+                  sidebarPanel(
+                    selectInput("plot_type", 
+                                "Select Plot Type:", 
+                                choices = c("Sector Correlation Heatmap", "Time-Series Plot",
+                                            "Horizontal Bar Chart", "Efficient Frontier"),
+                                selected = "Sector Correlation Heatmap"),
+                    
+                    conditionalPanel(
+                      condition = "input.plot_type == 'Time-Series Plot'",
+                      selectInput("election", 
+                                  "Select Election Year:", 
+                                  choices = names(election_periods), 
+                                  selected = "2020 Election"),
+                      
+                      selectInput("sectors", 
+                                  "Select Sectors:", 
+                                  choices = unique(data$Sector), 
+                                  selected = unique(data$Sector), 
+                                  multiple = TRUE),
+                      
+                      sliderInput("window_size", 
+                                  "Rolling Window Size (Days):", 
+                                  min = 5, max = 60, value = 20, step = 1)
+                    ),
+                    
+                    conditionalPanel(
+                      condition = "input.plot_type == 'Sector Correlation Heatmap'",
+                      selectInput("election_year", 
+                                  "Select Election Year:", 
+                                  choices = c("2020", "2016", "2012"), 
+                                  selected = "2020"),
+                      
+                      selectInput("date_range", 
+                                  "Select Date Range:", 
+                                  choices = c("60 Days Before", "30 Days Before", "15 Days Before", 
+                                              "15 Days After", "30 Days After", "60 Days After"), 
+                                  selected = "60 Days Before")
+                    ),
+                    
+                    conditionalPanel(
+                      condition = "input.plot_type == 'Horizontal Bar Chart'",
+                      selectInput(
+                        inputId = "election1",
+                        label = "Election Year (Range 1):",
+                        choices = c("2020", "2016", "2012"),
+                        selected = "2020"
+                      ),
+                      
+                      selectInput(
+                        inputId = "range1",
+                        label = "Date Range (Range 1):",
+                        choices = c("60 Days Before", "30 Days Before", "15 Days Before",
+                                    "15 Days After", "30 Days After", "60 Days After"),
+                        selected = "60 Days Before"
+                      ),
+                      
+                      selectInput(
+                        inputId = "election2",
+                        label = "Election Year (Range 2):",
+                        choices = c("2020", "2016", "2012"),
+                        selected = "2020"
+                      ),
+                      
+                      selectInput(
+                        inputId = "range2",
+                        label = "Date Range (Range 2):",
+                        choices = c("60 Days Before", "30 Days Before", "15 Days Before",
+                                    "15 Days After", "30 Days After", "60 Days After"),
+                        selected = "60 Days After"
+                      ),
+                    ),
+                    
+                    conditionalPanel(
+                      condition = "input.plot_type == 'Efficient Frontier'",
+                      selectInput(
+                        inputId = "year1",
+                        label = "Select Election Year:",
+                        choices = c("2020", "2016", "2012"),
+                        selected = "2020"
+                      )
+                    )
+                  ),
+                  
+                  mainPanel(
+                    plotOutput("plot", height = "800px"),
+                    tableOutput("weightsTable")
+                  )
+                )
+)
+
+# Define server logic
+server <- function(input, output) {
+  
+  # Reactive function for Time-Series Plot data
+  filtered_data_ts <- reactive({
+    period <- election_periods[[input$election]]
+    selected_sectors <- input$sectors
+    
+    data %>%
+      filter(Sector %in% selected_sectors, 
+             Exchange_Date >= period$start, 
+             Exchange_Date <= period$end) %>%
+      arrange(Sector, Exchange_Date) %>%
+      group_by(Sector) %>%
+      mutate(
+        Rolling_Avg = rollmean(Closing_Price, k = input$window_size, fill = NA, align = "right")
+      )
+  })
+  
+  # Reactive function for Sector Correlation Heatmap data
+  calculate_date_range <- function(year, range) {
+    election_day <- as.Date(paste0(year, "-11-03"))
+    if (range == "60 Days Before") {
+      return(c(election_day - 60, election_day))
+    } else if (range == "30 Days Before") {
+      return(c(election_day - 30, election_day))
+    } else if (range == "15 Days Before") {
+      return(c(election_day - 15, election_day))
+    } else if (range == "15 Days After") {
+      return(c(election_day, election_day + 15))
+    } else if (range == "30 Days After") {
+      return(c(election_day, election_day + 30))
+    } else if (range == "60 Days After") {
+      return(c(election_day, election_day + 60))
+    }
+    return(NULL)
+  }
+  
+  filtered_data_heatmap <- reactive({
+    year <- input$election_year
+    range <- input$date_range
+    date_range <- calculate_date_range(year, range)
+    
+    data %>%
+      filter(Exchange_Date >= date_range[1] & Exchange_Date <= date_range[2]) %>%
+      select(Sector, Exchange_Date, Closing_Price) %>%
+      spread(key = Sector, value = Closing_Price)
+  })
+  
+  # Reactive function for Horizontal Bar Chart data
+  get_date_range <- function(year, range) {
+    end_dates <- list(
+      "2020" = as.Date("2020-11-02"),
+      "2016" = as.Date("2016-11-07"),
+      "2012" = as.Date("2012-11-05")
+    )
+    start_dates <- list(
+      "2020" = as.Date("2020-11-04"),
+      "2016" = as.Date("2016-11-09"),
+      "2012" = as.Date("2012-11-07")
+    )
+    pre_start_dates <- list(
+      "2020" = list("60 Days Before" = as.Date("2020-08-11"),
+                    "30 Days Before" = as.Date("2020-09-22"),
+                    "15 Days Before" = as.Date("2020-10-13")),
+      "2016" = list("60 Days Before" = as.Date("2016-08-17"),
+                    "30 Days Before" = as.Date("2016-09-28"),
+                    "15 Days Before" = as.Date("2016-10-19")),
+      "2012" = list("60 Days Before" = as.Date("2012-08-14"),
+                    "30 Days Before" = as.Date("2012-09-25"),
+                    "15 Days Before" = as.Date("2012-10-16"))
+    )
+    post_end_dates <- list(
+      "2020" = list("15 Days After" = as.Date("2020-11-24"),
+                    "30 Days After" = as.Date("2020-12-15"),
+                    "60 Days After" = as.Date("2021-01-26")),
+      "2016" = list("15 Days After" = as.Date("2016-11-30"),
+                    "30 Days After" = as.Date("2016-12-21"),
+                    "60 Days After" = as.Date("2017-02-01")),
+      "2012" = list("15 Days After" = as.Date("2012-11-27"),
+                    "30 Days After" = as.Date("2012-12-18"),
+                    "60 Days After" = as.Date("2013-01-30"))
+    )
+    
+    if (grepl("Before", range)) {
+      list(start = pre_start_dates[[year]][[range]], end = end_dates[[year]])
+    } else {
+      list(start = start_dates[[year]], end = post_end_dates[[year]][[range]])
+    }
+  }
+  
+  # Reactive expression to process data based on selected year - Efficient Frontier
+  processed_data <- reactive({
+    year1 <- input$year1
+    process_election_data(election_data_list[[year1]])
+  })
+  
+  
+  # Render the plot based on selected plot type
+  output$plot <- renderPlot({
+    
+    if (input$plot_type == "Time-Series Plot") {
+      sector_df <- filtered_data_ts()
+      period <- election_periods[[input$election]]
+      
+      # Assign colors to the sectors
+      sector_colors <- c(
+        "Tech" = "#6a3d9a",
+        "Financial" = "#1f78b4",
+        "Healthcare" = "#33a02c",
+        "Industrial" = "#e31a1c",
+        "Vix" = "#ee82ee"
+      )
+      
+      
+      
+      ggplot(sector_df, aes(x = Exchange_Date)) +
+        geom_line(aes(y = Closing_Price, color = Sector), size = 1) +
+        geom_line(aes(y = Rolling_Avg, color = Sector), size = 1, linetype = "dashed", alpha = 0.8) +
+        geom_vline(xintercept = as.numeric(period$election_day), color = "orange", linetype = "dashed", size = 1.2) +
+        annotate(geom = "label", x = period$election_day, y = 0, label = "Election Day") +
+        scale_color_manual(values = sector_colors) +
+        labs(title = "Time-Series Plot of Closing Prices with Rolling Averages",
+             subtitle = paste("Sectors:", paste(input$sectors, collapse = ", "),
+                              "| Rolling Window Size:", input$window_size, "days | Election:", input$election),
+             x = "Date", y = "Price", color = "Sector") +
+        theme_minimal() +
+        theme(
+          legend.title = element_blank(),
+          legend.text = element_text(size = 12),
+          axis.text.y = element_text(angle = 0, hjust = 1),
+          plot.title = element_text(family = "sans", size = 20, face = "bold"),
+          plot.subtitle = element_text(family = "serif", size = 16, face = "italic"),
+          axis.text = element_text(family = "serif", size = 14),
+          axis.title = element_text(family = "sans", size = 16),
+          legend.position = "top", axis.text.x = element_text(angle = 45, hjust = 1))
+      
+    } else if (input$plot_type == "Sector Correlation Heatmap") {
+      filtered_corr <- filtered_data_heatmap()
+      correlation_matrix <- cor(filtered_corr[, -1], use = "complete.obs")
+      melted_corr <- melt(correlation_matrix)
+      
+      ggplot(melted_corr, aes(x = Var1, y = Var2, fill = value)) +
+        geom_tile(color = "white") +
+        geom_text(aes(label = sprintf("%.2f", value)), size = 4, color = "black") +
+        scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0,
+                             limit = c(-1, 1), space = "Lab", name = "Correlation") +
+        labs(title = "Sector Correlation Heatmap",
+             subtitle = paste("Election Year:", input$election_year, "| Date Range:", input$date_range),
+             x = "Sector", y = "Sector") +
+        theme_minimal() +
+        theme(
+          axis.text.y = element_text(angle = 0, hjust = 1),
+          plot.title = element_text(family = "sans", size = 20, face = "bold"),
+          plot.subtitle = element_text(family = "serif", size = 16, face = "italic"),
+          axis.text = element_text(family = "serif", size = 14),
+          axis.title = element_text(family = "sans", size = 16),
+          axis.text.x = element_text(angle = 45, hjust = 1))
+      
+    } else if (input$plot_type == "Horizontal Bar Chart") {
+      # Get date ranges for both selections
+      range1 <- get_date_range(input$election1, input$range1)
+      range2 <- get_date_range(input$election2, input$range2)
+      
+      # Filter data for the selected ranges
+      data_range1 <- data %>%
+        filter(Exchange_Date >= range1$start & Exchange_Date <= range1$end)
+      
+      data_range2 <- data %>%
+        filter(Exchange_Date >= range2$start & Exchange_Date <= range2$end)
+      
+      # Function to calculate various metrics for each sector in a given date range
+      test_metrics <- function(data, target_range, range_label) {
+        data %>%
+          filter(Exchange_Date >= target_range[1], Exchange_Date <= target_range[2]) %>%
+          group_by(Sector) %>%
+          summarise(
+            # Convert Closing_Price to xts for daily returns
+            stock_xts = list(xts(Closing_Price, order.by = Exchange_Date)),
+            benchmark_xts = list(xts(SP_500, order.by = Exchange_Date)),
+            
+            # Calculate daily returns
+            stock_return = list(dailyReturn(stock_xts[[1]], type = "log")),
+            bench_return = list(dailyReturn(benchmark_xts[[1]], type = "log")),
+            
+            # Calculate average returns
+            avg_return = mean(unlist(stock_return), na.rm = TRUE),
+            avg_bench_return = mean(unlist(bench_return), na.rm = TRUE),
+            
+            # Calculate average risk-free rate
+            avg_rfr = mean(TenYT_Yield, na.rm = TRUE),
+            
+            # Calculate Beta
+            beta_model = list(lm(unlist(stock_return) ~ unlist(bench_return))),
+            beta = coef(beta_model[[1]])[2],
+            
+            # Calculate Alpha
+            alpha = avg_return - (avg_rfr + beta * (avg_bench_return - avg_rfr)),
+            
+            # Calculate sector volatility
+            volatility = sd(unlist(stock_return), na.rm = TRUE) * sqrt(252) * 100,
+            
+            # Calculate sector drawdown
+            max_price = max(Closing_Price, na.rm = TRUE),
+            min_price = min(Closing_Price, na.rm = TRUE),
+            drawdown = (max_price - min_price) / max_price * 100
+          ) %>%
+          select(-c(stock_xts, benchmark_xts, stock_return, bench_return, beta_model)) %>%
+          pivot_longer(cols = -Sector, names_to = "Metric", values_to = "Value") %>%
+          mutate(Date_Range = range_label)
+      }
+      
+      # Calculate metrics for both date ranges
+      tmetrics_range1 <- test_metrics(data2, c(range1$start, range1$end), "Range 1")
+      tmetrics_range2 <- test_metrics(data2, c(range2$start, range2$end), "Range 2")
+      
+      # Combine metrics from both ranges
+      tmetrics_combined <- bind_rows(tmetrics_range1, tmetrics_range2) %>%
+        mutate(Sector_Metric = interaction(Sector, Metric, lex.order = TRUE))
+      
+      # Adjust factor levels for proper ordering of metrics
+      tmetrics_combined$Metric <- factor(tmetrics_combined$Metric, 
+                                         levels = c("avg_return", "avg_bench_return",
+                                                    "avg_rfr", "beta", "alpha", "volatility",
+                                                    "max_price", "min_price", "drawdown"))
+      
+      # Create unique labels for easy grouping in the plot
+      tmetrics_combined <- tmetrics_combined %>%
+        mutate(Sector_Metric = interaction(Sector, Metric, lex.order = TRUE))
+      
+      # Define color palette for sectors
+      sector_colors <- c("#1f78b4", "#33a02c", "#e31a1c", "#6a3d9a")
+      names(sector_colors) <- unique(tmetrics_combined$Sector)
+      
+      # Add color mapping for each sector and date range
+      tmetrics_combined <- tmetrics_combined %>%
+        mutate(Color = ifelse(Date_Range == "Range 1", 
+                              scales::alpha(sector_colors[Sector], 0.6), 
+                              scales::alpha(sector_colors[Sector], 1.0)))
+      
+      # Dynamic subtitle based on date ranges
+      subtitle_text <- sprintf(
+        "Comparing Range 1 (%s to %s) with Range 2 (%s to %s)",
+        format(range1$start, "%B %d, %Y"),
+        format(range1$end, "%B %d, %Y"),
+        format(range2$start, "%B %d, %Y"),
+        format(range2$end, "%B %d, %Y")
+      )
+      
+      # Filter the data for plot rows (e.g., for specific metrics of interest)
+      row_vec1 <- c(4, 5, 6, 9, 13, 14, 15, 18, 22, 23, 24, 27, 31, 32, 33, 36, 40, 41, 42, 45, 49, 50, 51, 54,
+                    58, 59, 60, 63, 67, 68, 69, 72) 
+      tmetrics_combined_p1 <- tmetrics_combined[row_vec1,]
+      
+      # Plotting the horizontal bar chart
+      ggplot(tmetrics_combined_p1, aes(x = Value, y = Sector_Metric, fill = Color)) +
+        geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.6) +
+        geom_text(aes(label = sprintf("%.4f", Value)), 
+                  position = position_dodge(width = 0.8), 
+                  hjust = -0.2, size = 3) +
+        scale_fill_identity() +
+        labs(
+          title = "Stock Sector Metrics by Date Range",
+          subtitle = subtitle_text,  # Dynamic subtitle
+          x = "Measure (%)",
+          y = "Sector and Metric"
+        ) +
+        theme_minimal() +
+        theme(
+          
+          panel.grid.major.y = element_blank(),
+          axis.text.y = element_text(angle = 0, hjust = 1),
+          plot.title = element_text(family = "sans", size = 20, face = "bold"),
+          plot.subtitle = element_text(family = "serif", size = 16, face = "italic"),
+          axis.text = element_text(family = "serif", size = 14),
+          axis.title = element_text(family = "sans", size = 16),
+          legend.position = "none" )
+      
+    } else if  (input$plot_type == "Efficient Frontier") {
+      data3 <- processed_data()
+      portfolios <- data3$portfolios
+      max_sharpe_index <- data3$max_sharpe_index
+      max_SR <- data3$max_SR
+      selected_weights <- data3$selected_weights
+      
+      sector_abbr <- c(
+        "Financials" = "Fin",
+        "Healthcare" = "Health",
+        "Tech" = "Tech",
+        "Aero&Defense"="Aero&Def",
+        "Industrials"="Indst"
+      )
+      
+      ggplot(portfolios, aes(x = Risk, y = Return)) +
+        geom_point(aes(color = SharpeRatio), alpha = 0.5) +
+        scale_color_gradient(low = "red", high = "green") +
+        
+        labs(
+          title = "Efficient Frontier for Different Presidents", 
+          x = "Risk (Standard Deviation)", y = "Expected Return",
+          color = "Sharpe Ratio"
+        ) +
+        
+        
+        theme(
+          plot.title = element_text(
+            face = "bold",       # Embolden the title
+            hjust = 0.5,         # Center the title
+            size = 16            # Adjust the font size as needed
+          ),
+          axis.title.x = element_text(face = "bold", size=15),
+          axis.title.y = element_text(face = "bold", size=15)
+        ) +
+        
+        # Highlight the Max Sharpe Ratio portfolio
+        geom_point(aes(x = portfolios$Risk[max_sharpe_index],
+                       y = portfolios$Return[max_sharpe_index]),
+                   color = "blue", size = 3) +
+        
+        annotate(
+          "text", 
+          x = portfolios$Risk[max_sharpe_index] + 0.0005,  # Shift slightly right
+          y = portfolios$Return[max_sharpe_index] + 0.00070, # Move down slightly
+          label = paste(
+            "Max Sharpe Ratio:", sprintf("%.1f", max_SR), "\n",
+            "(", paste(
+              paste0(sector_abbr[names(selected_weights)], ": ", sprintf("%.1f%%", selected_weights * 100)),
+              collapse = ", "
+            ), ")"
+          ), 
+          color = "blue", 
+          size = 4,  # Adjust font size
+          hjust = 0,   # Align text to the left
+          fontface = "bold"  # Make text bold
+        )
+      
+      
+    }
+  })
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
