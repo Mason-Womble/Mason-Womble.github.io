@@ -20,7 +20,9 @@ I am a graduate student studying social data analytics. Enthusiastic and eager t
 \
 [Health Misinformation Research Project](Jepkosgei_finalproject.pdf)
 
-[Economics and Elections Research Project](Womble_FinalProject_6356.pdf)
+[Economics and Elections Research Project](Womble_FinalProject_6356.pdf)\
+\
+[DataVis Presentation](Womble_DataVis_Final_Presentation.pptx)
 
 **Shiny Projects**
 
