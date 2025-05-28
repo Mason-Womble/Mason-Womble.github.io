@@ -10,9 +10,11 @@ I am a graduate student studying social data analytics. Enthusiastic and eager t
 
 \[cmason.womble\@gmail.com\]
 
-**CV**
-
-[CV](Womble%20CV%202024.pdf)
+**Resume and CV\
+\
+**[Resume](Christopher_Mason_Womble_Resume_2025.pdf)\
+\
+[CV](Christopher_Womble_CV_2025.pdf)
 
 **Projects\
 \
@@ -20,30 +22,8 @@ I am a graduate student studying social data analytics. Enthusiastic and eager t
 \
 [Health Misinformation Research Project](Jepkosgei_finalproject.pdf)
 
-[Economics and Elections Research Project](Womble_FinalProject_6356.pdf)\
-\
-[DataVis Presentation](Womble_DataVis_Final_Presentation.pptx)
+[Economics and Elections Research Project](Womble_FinalProject_6356.pdf)
 
 **Shiny Projects**
 
 [Economics and Elections App](https://mason-womble.shinyapps.io/DataVis_FinalProject/)
-
-**Data Visualization Assignments**
-
-[Assignment 1](Data_Visualization_Assignment_1_Revised.pdf)
-
-[Assignment 2](Assignment_2.R)
-
-[Assignment 3](Data_Visualization_Assignment_3.pdf)
-
-[Assignment 5](DataVis_Assignment5.pdf)
-
-[Assignment 6](https://mason-womble.shinyapps.io/Assignment_6/)
-
-**Hackathon**
-
-[PreHackathon](Hackathon%201%20Scatterplot.pdf)
-
-[Assignment 4/Hackathon 1](Womble_Hackathon.R)
-
-[Assignment 7/Hackathon 2](https://mason-womble.shinyapps.io/Hackathon2/)
